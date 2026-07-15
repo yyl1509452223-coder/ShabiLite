@@ -4,26 +4,16 @@
         xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="鲨壁设置"
-        Width="680"
-        Height="780"
-        MinWidth="620"
-        MinHeight="650"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResize"
+        Width="680" Height="650" MinWidth="620" MinHeight="580"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Icon="Assets/AppIcon.ico"
         Background="{DynamicResource AppBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}"
-        FontFamily="Segoe UI"
-        UseLayoutRounding="True"
-        SnapsToDevicePixels="True"
-        WindowStyle="None"
-        StateChanged="SettingsWindow_StateChanged">
+        FontFamily="Segoe UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        WindowStyle="None" StateChanged="SettingsWindow_StateChanged">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="38"
-                            ResizeBorderThickness="6"
-                            CornerRadius="0"
-                            GlassFrameThickness="0"
-                            UseAeroCaptionButtons="False" />
+        <shell:WindowChrome CaptionHeight="38" ResizeBorderThickness="6" CornerRadius="0"
+                            GlassFrameThickness="0" UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
     <Border x:Name="SettingsWindowFrame" Background="{DynamicResource AppBackgroundBrush}"
@@ -60,137 +50,122 @@
                 </Grid>
             </Border>
 
-    <Grid Grid.Row="1" Margin="26,22">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="18" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="16" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+            <Grid Grid.Row="1" Margin="26,22">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="18" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="16" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock FontSize="23" FontWeight="SemiBold" Text="设置" />
-            <TextBlock Margin="0,5,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}"
-                       Text="管理 SteamCMD 授权、壁纸文件和诊断信息。" />
-        </StackPanel>
+                <StackPanel>
+                    <TextBlock FontSize="23" FontWeight="SemiBold" Text="设置" />
+                    <TextBlock Margin="0,5,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}"
+                               Text="管理远程下载、壁纸文件和诊断信息。" />
+                </StackPanel>
 
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-                <Border Padding="20" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1" CornerRadius="14">
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel>
-                        <CheckBox x:Name="RemoteModeCheckBox" FontSize="18" FontWeight="SemiBold"
-                                  Content="使用远程下载服务器"
-                                  Checked="RemoteModeCheckBox_Changed" Unchecked="RemoteModeCheckBox_Changed" />
-                        <TextBlock Margin="27,7,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
-                                   TextWrapping="Wrap"
-                                   Text="开启后由固定电脑负责 SteamCMD 下载；当前电脑不需要登录 Steam，也不需要安装 SteamCMD。" />
+                        <Border Padding="20" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1" CornerRadius="14">
+                            <StackPanel>
+                                <TextBlock FontSize="18" FontWeight="SemiBold" Text="远程下载服务器" />
+                                <TextBlock Margin="0,7,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="壁纸由固定电脑下载；当前电脑不需要安装或登录 SteamCMD。" />
 
-                        <Grid x:Name="RemoteServerFields" Margin="27,16,0,0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <TextBlock FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="服务器地址" />
-                            <TextBox x:Name="RemoteServerUrlTextBox" Grid.Row="1" Margin="0,7,0,0" Height="42"
-                                     ToolTip="例如：https://download.example.com" />
-                            <TextBlock Grid.Row="2" Margin="0,14,0,0" FontSize="13"
-                                       Foreground="{StaticResource SecondaryTextBrush}" Text="访问密钥" />
-                            <TextBox x:Name="RemoteServerKeyTextBox" Grid.Row="3" Margin="0,7,0,0" Height="42"
-                                     ToolTip="由服务器电脑生成的鲨壁访问密钥" />
-                            <Grid Grid.Row="4" Margin="0,14,0,0">
+                                <Border x:Name="RemoteSettingsLockPanel" Margin="0,17,0,0" Padding="16"
+                                        Background="#F1ECFA" BorderBrush="#D9CFF0" BorderThickness="1" CornerRadius="10">
+                                    <StackPanel>
+                                        <TextBlock FontSize="14" FontWeight="SemiBold" Text="服务器设置已锁定" />
+                                        <TextBlock Margin="0,5,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
+                                                   Text="输入管理密码后才能查看或修改服务器地址和访问密钥。" TextWrapping="Wrap" />
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="10" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <PasswordBox x:Name="RemoteSettingsPasswordBox" Height="42"
+                                                         KeyDown="RemoteSettingsPasswordBox_KeyDown"
+                                                         automation:AutomationProperties.Name="服务器设置管理密码" />
+                                            <Button Grid.Column="2" MinWidth="112" Style="{StaticResource PrimaryButton}"
+                                                    Content="解锁设置" Click="UnlockRemoteSettingsButton_Click" />
+                                        </Grid>
+                                        <TextBlock x:Name="RemoteSettingsLockStatusText" Margin="0,8,0,0" FontSize="12"
+                                                   Foreground="#B43D51" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid x:Name="RemoteServerFields" Margin="0,17,0,0" Visibility="Collapsed">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="服务器地址" />
+                                    <TextBox x:Name="RemoteServerUrlTextBox" Grid.Row="1" Margin="0,7,0,0" Height="42"
+                                             ToolTip="例如：https://download.example.com" />
+                                    <TextBlock Grid.Row="2" Margin="0,14,0,0" FontSize="13"
+                                               Foreground="{StaticResource SecondaryTextBrush}" Text="访问密钥" />
+                                    <TextBox x:Name="RemoteServerKeyTextBox" Grid.Row="3" Margin="0,7,0,0" Height="42"
+                                             ToolTip="由服务器电脑生成的鲨壁访问密钥" />
+                                    <Grid Grid.Row="4" Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="10" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="RemoteConnectionStatusText" VerticalAlignment="Center" FontSize="12"
+                                                   Foreground="{StaticResource MutedTextBrush}" Text="保存前可以先测试连接。"
+                                                   TextWrapping="Wrap" />
+                                        <Button x:Name="TestRemoteConnectionButton" Grid.Column="2" MinWidth="112"
+                                                Content="测试连接" Click="TestRemoteConnectionButton_Click" />
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="0,14,0,0" Padding="20" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14">
+                            <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="10" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="10" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="RemoteConnectionStatusText" VerticalAlignment="Center" FontSize="12"
-                                           Foreground="{StaticResource MutedTextBrush}" Text="保存前可以先测试连接。"
-                                           TextWrapping="Wrap" />
-                                <Button x:Name="TestRemoteConnectionButton" Grid.Column="2" MinWidth="112"
-                                        Content="测试连接" Click="TestRemoteConnectionButton_Click" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="文件与诊断" />
+                                    <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
+                                               Text="管理软件内的壁纸文件或查看错误日志。" />
+                                </StackPanel>
+                                <Button Grid.Column="2" MinWidth="112" Content="打开壁纸库" Click="OpenLibraryButton_Click" />
+                                <Button Grid.Column="4" MinWidth="96" Content="查看日志" Click="OpenLogButton_Click" />
                             </Grid>
-                        </Grid>
+                        </Border>
                     </StackPanel>
-                </Border>
+                </ScrollViewer>
 
-                <Border Padding="20" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1" CornerRadius="14" Margin="0,14,0,0" x:Name="LocalSteamCard">
-                    <StackPanel>
-                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="SteamCMD 下载授权" />
-                        <TextBlock Margin="0,6,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
-                                   TextWrapping="Wrap" Text="仅在关闭远程服务器时使用。Steam 授权令牌只保存在当前电脑。" />
-
-                        <TextBlock Margin="0,17,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="Steam 用户名" />
-                        <TextBox x:Name="SteamUserNameTextBox" Margin="0,7,0,0" Height="42"
-                                 ToolTip="Steam 账号登录名，不是个人资料昵称" />
-
-                        <TextBlock Margin="0,15,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="SteamCMD 程序" />
-                        <Grid Margin="0,7,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="9" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="SteamCmdPathTextBox" Height="42" IsReadOnly="True" />
-                            <Button Grid.Column="2" Height="42" MinWidth="96" Content="选择程序" Click="BrowseSteamCmdButton_Click" />
-                        </Grid>
-
-                        <Grid Margin="0,16,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="10" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LoginStatusText" VerticalAlignment="Center" FontSize="12"
-                                       Foreground="{StaticResource MutedTextBrush}" Text="窗口会保持打开；登录成功后输入 quit 退出。" TextWrapping="Wrap" />
-                            <Button Grid.Column="2" MinWidth="144" Style="{StaticResource PrimaryButton}"
-                                    Content="登录 / 重新授权" Click="LoginSteamCmdButton_Click" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <Border Margin="0,14,0,0" Padding="20" Background="{StaticResource SurfaceBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="10" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock FontSize="16" FontWeight="SemiBold" Text="文件与诊断" />
-                            <TextBlock Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource MutedTextBrush}"
-                                       Text="管理软件内的壁纸副本或查看错误日志。" />
-                        </StackPanel>
-                        <Button Grid.Column="2" MinWidth="112" Content="打开壁纸库" Click="OpenLibraryButton_Click" />
-                        <Button Grid.Column="4" MinWidth="96" Content="查看日志" Click="OpenLogButton_Click" />
-                    </Grid>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
-
-        <Grid Grid.Row="4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="SettingsFooterText" VerticalAlignment="Center" FontSize="11"
-                       Foreground="{StaticResource MutedTextBrush}"
-                       Text="远程模式不会在当前电脑保存 Steam 密码或登录令牌。" />
-            <Button Grid.Column="1" MinWidth="88" Content="取消" Click="CancelButton_Click" />
-            <Button Grid.Column="3" MinWidth="112" Style="{StaticResource PrimaryButton}"
-                    Content="保存并关闭" Click="SaveButton_Click" />
-        </Grid>
-    </Grid>
+                <Grid Grid.Row="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="SettingsFooterText" VerticalAlignment="Center" FontSize="11"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="下载功能统一由远程服务器提供。" />
+                    <Button Grid.Column="1" MinWidth="88" Content="取消" Click="CancelButton_Click" />
+                    <Button Grid.Column="3" MinWidth="112" Style="{StaticResource PrimaryButton}"
+                            Content="保存并关闭" Click="SaveButton_Click" />
+                </Grid>
+            </Grid>
         </Grid>
     </Border>
 </Window>

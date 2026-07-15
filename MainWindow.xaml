@@ -145,7 +145,7 @@
             <Button x:Name="DownloadButton" Grid.Column="4" MinWidth="126"
                     Style="{StaticResource PrimaryButton}" Content="下载壁纸"
                     Click="DownloadButton_Click"
-                    automation:AutomationProperties.Name="使用 SteamCMD 下载壁纸" />
+                    automation:AutomationProperties.Name="使用远程服务器下载壁纸" />
         </Grid>
 
         <Border x:Name="StatusBorder" Grid.Row="2" Background="#EEEAF3" CornerRadius="9" ClipToBounds="True"
@@ -277,10 +277,6 @@
                                                               MediaOpened="HoverPreviewMedia_MediaOpened"
                                                               MediaEnded="HoverPreviewMedia_MediaEnded"
                                                               MediaFailed="HoverPreviewMedia_MediaFailed" />
-                                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6"
-                                                        Padding="6,2" Background="#E6FFFFFF" CornerRadius="5">
-                                                    <TextBlock FontSize="10" Foreground="#4A4356" Text="{Binding SourceLabel}" />
-                                                </Border>
                                             </Grid>
                                             <TextBlock Grid.Row="1" Margin="9,0" VerticalAlignment="Center"
                                                        FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}"
@@ -349,7 +345,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Foreground="{StaticResource MutedTextBrush}" FontSize="12" Text="开发：打电动的七彩鲨鱼" />
             <TextBlock Grid.Column="1" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
-                       Text="SteamCMD 下载 · LibVLC 64 位播放" />
+                       Text="远程下载 · LibVLC 64 位播放" />
         </Grid>
     </Grid>
         </Grid>

@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <Compile Remove="ShabiServer\**\*.cs" />
+    <Compile Remove="Services\SteamCmdService.cs" />
     <EmbeddedResource Remove="ShabiServer\**\*" />
     <None Remove="ShabiServer\**\*" />
   </ItemGroup>

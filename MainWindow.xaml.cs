@@ -104,71 +104,14 @@ namespace ShabiLite
             }
 
             string workshopId;
-            if (!SteamCmdService.TryExtractWorkshopId(WorkshopUrlTextBox.Text, out workshopId))
+            if (!WorkshopIdParser.TryExtract(WorkshopUrlTextBox.Text, out workshopId))
             {
                 ShowStatus("请输入有效的创意工坊详情页 URL，或直接输入 Workshop ID。", StatusKind.Error);
                 WorkshopUrlTextBox.Focus();
                 return;
             }
 
-            if (_settings.UseRemoteServer)
-            {
-                await DownloadFromRemoteServerAsync(workshopId);
-                return;
-            }
-
-            var steamCmdPath = SteamCmdService.FindSteamCmd(_settings.SteamCmdPath);
-            if (steamCmdPath == null)
-            {
-                var dialog = new Microsoft.Win32.OpenFileDialog
-                {
-                    Title = "选择 steamcmd.exe",
-                    Filter = "SteamCMD (steamcmd.exe)|steamcmd.exe|应用程序 (*.exe)|*.exe",
-                    FileName = "steamcmd.exe",
-                    CheckFileExists = true
-                };
-                if (dialog.ShowDialog(this) != true)
-                {
-                    ShowStatus("下载需要 SteamCMD。选择 steamcmd.exe 后即可继续。", StatusKind.Info);
-                    return;
-                }
-                steamCmdPath = dialog.FileName;
-            }
-
-            var steamUserName = SteamCmdService.IsValidSteamUserName(_settings.SteamUserName)
-                ? _settings.SteamUserName.Trim()
-                : string.Empty;
-
-            _settings.SteamCmdPath = steamCmdPath;
-            _settings.SteamUserName = steamUserName;
-            SaveSettings();
-            SetDownloadState(true);
-            ShowDownloadProgress(3, "正在准备下载 Workshop " + workshopId + "…", StatusKind.Loading);
-
-            var progress = new Progress<SteamCmdProgress>(update =>
-                ShowDownloadProgress(update.Percent, update.Message, StatusKind.Loading));
-            var result = await SteamCmdService.DownloadAsync(steamCmdPath, workshopId, steamUserName, progress);
-            SetDownloadState(false);
-            Log.Write("SteamCMD " + workshopId + "：" + result.Message + Environment.NewLine + Tail(result.Output, 4000));
-
-            if (!result.Success)
-            {
-                ShowDownloadProgress(100, result.Message, StatusKind.Error);
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(result.VideoPath) && File.Exists(result.VideoPath))
-            {
-                SelectVideo(result.VideoPath, "创意工坊 " + workshopId, true, result.Title);
-                var titleMessage = string.IsNullOrWhiteSpace(result.Title)
-                    ? result.Message
-                    : result.Message + " 文件名：" + result.Title;
-                ShowDownloadProgress(100, titleMessage, StatusKind.Success);
-            }
-            else
-            {
-                ShowDownloadProgress(100, result.Message + " 下载目录：" + result.WorkshopDirectory, StatusKind.Info);
-            }
+            await DownloadFromRemoteServerAsync(workshopId);
         }
 
         private async Task DownloadFromRemoteServerAsync(string workshopId)
@@ -182,12 +125,13 @@ namespace ShabiLite
 
             SetDownloadState(true);
             ShowDownloadProgress(3, "正在连接远程服务器…", StatusKind.Loading);
-            var progress = new Progress<SteamCmdProgress>(update =>
+            var progress = new Progress<DownloadProgress>(update =>
                 ShowDownloadProgress(update.Percent, update.Message, StatusKind.Loading));
             var result = await RemoteDownloadService.DownloadAsync(
                 _settings.RemoteServerUrl,
                 _settings.RemoteServerKey,
                 workshopId,
+                LibraryDirectory,
                 progress,
                 CancellationToken.None);
             SetDownloadState(false);
@@ -199,24 +143,11 @@ namespace ShabiLite
                 return;
             }
 
-            try
-            {
-                SelectVideo(result.VideoPath, "远程创意工坊 " + workshopId, true, result.Title);
-                var titleMessage = string.IsNullOrWhiteSpace(result.Title)
-                    ? result.Message
-                    : result.Message + " 文件名：" + result.Title;
-                ShowDownloadProgress(100, titleMessage, StatusKind.Success);
-            }
-            finally
-            {
-                try
-                {
-                    File.Delete(result.VideoPath);
-                }
-                catch
-                {
-                }
-            }
+            SelectVideo(result.VideoPath, "远程创意工坊 " + workshopId, true, result.Title);
+            var titleMessage = string.IsNullOrWhiteSpace(result.Title)
+                ? result.Message
+                : result.Message + " 文件名：" + result.Title;
+            ShowDownloadProgress(100, titleMessage, StatusKind.Success);
         }
 
         private void WorkshopUrlTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -472,7 +403,7 @@ namespace ShabiLite
             {
                 FileName = Path.GetFileNameWithoutExtension(path),
                 Path = path,
-                SourceLabel = sourceLabel,
+                PreviewPath = VideoThumbnailProvider.FindPreviewPath(path),
                 Thumbnail = VideoThumbnailProvider.GetThumbnail(path, 316, 184)
             };
         }
@@ -522,11 +453,14 @@ namespace ShabiLite
                 return;
             }
 
-            if (MessageBox.Show(this,
-                    "确定从软件壁纸库删除“" + item.FileName + "”吗？\n\n这会删除 Wallpapers 文件夹中的副本，不影响原始文件。",
-                    "删除壁纸",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            var confirmDialog = new ConfirmDialog(
+                "删除壁纸",
+                "确定永久删除“" + item.FileName + "”吗？",
+                "这会同时删除 Wallpapers 文件夹中的 MP4 壁纸本体和静态预览图，删除后无法恢复。")
+            {
+                Owner = this
+            };
+            if (confirmDialog.ShowDialog() != true)
             {
                 return;
             }
@@ -542,6 +476,7 @@ namespace ShabiLite
                 }
 
                 File.Delete(item.Path);
+                DeletePreviewFiles(item.Path);
                 _wallpapers.Remove(item);
                 if (_wallpapers.Count > 0)
                 {
@@ -559,6 +494,18 @@ namespace ShabiLite
             catch (Exception exception)
             {
                 ShowStatus("无法删除壁纸：" + exception.Message, StatusKind.Error);
+            }
+        }
+
+        private static void DeletePreviewFiles(string videoPath)
+        {
+            foreach (var extension in new[] { ".jpg", ".jpeg", ".png", ".gif" })
+            {
+                var previewPath = Path.ChangeExtension(videoPath, extension);
+                if (File.Exists(previewPath))
+                {
+                    File.Delete(previewPath);
+                }
             }
         }
 
@@ -728,11 +675,7 @@ namespace ShabiLite
             };
             if (settingsWindow.ShowDialog() == true)
             {
-                ShowStatus(
-                    _settings.UseRemoteServer
-                        ? "设置已保存。下载将由远程服务器处理，本机无需 Steam 登录。"
-                        : "设置已保存。Steam 登录令牌仅保存在本机 SteamCMD 中。",
-                    StatusKind.Info);
+                ShowStatus("设置已保存。下载将由远程服务器处理，本机无需安装或登录 SteamCMD。", StatusKind.Info);
             }
         }
 

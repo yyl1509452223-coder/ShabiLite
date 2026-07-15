@@ -91,6 +91,29 @@ app.MapGet("/api/files/{workshopId}", (string workshopId, WorkshopJobManager job
         enableRangeProcessing: true);
 });
 
+app.MapGet("/api/previews/{workshopId}", (string workshopId, WorkshopJobManager jobs) =>
+{
+    if (!WorkshopJobManager.IsValidWorkshopId(workshopId))
+    {
+        return Results.BadRequest(new { error = "Workshop ID 格式无效。" });
+    }
+
+    var job = jobs.Find(workshopId);
+    if (job == null || job.Status != "ready" || string.IsNullOrWhiteSpace(job.PreviewPath) || !File.Exists(job.PreviewPath))
+    {
+        return Results.NotFound(new { error = "这个壁纸没有可用的静态预览图。" });
+    }
+
+    var contentType = Path.GetExtension(job.PreviewPath).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".jpeg" => "image/jpeg",
+        _ => "image/jpeg"
+    };
+    return Results.File(job.PreviewPath, contentType, Path.GetFileName(job.PreviewPath));
+});
+
 Console.WriteLine($"鲨壁下载服务器已启动：http://127.0.0.1:{settings.Port}");
 Console.WriteLine($"配置文件：{settingsPath}");
 Console.WriteLine("访问密钥保存在配置文件中，请勿上传到公开仓库。");
@@ -177,6 +200,7 @@ internal sealed class WorkshopJob
     public string Message { get; set; } = "任务已进入队列。";
     public string? Title { get; set; }
     public string? FilePath { get; set; }
+    public string? PreviewPath { get; set; }
 
     public object ToResponse()
     {
@@ -188,7 +212,10 @@ internal sealed class WorkshopJob
             message = Message,
             title = Title,
             fileName = string.IsNullOrWhiteSpace(FilePath) ? null : Path.GetFileName(FilePath),
-            downloadUrl = Status == "ready" ? $"/api/files/{WorkshopId}" : null
+            downloadUrl = Status == "ready" ? $"/api/files/{WorkshopId}" : null,
+            previewUrl = Status == "ready" && !string.IsNullOrWhiteSpace(PreviewPath)
+                ? $"/api/previews/{WorkshopId}"
+                : null
         };
     }
 }
@@ -259,6 +286,7 @@ internal sealed class WorkshopJobManager
         var file = Directory.GetFiles(directory, "*.mp4", SearchOption.TopDirectoryOnly)
             .OrderByDescending(File.GetLastWriteTimeUtc)
             .FirstOrDefault();
+        var preview = FindOrCopyPreview(workshopId, directory);
         return file == null
             ? null
             : new WorkshopJob
@@ -268,7 +296,8 @@ internal sealed class WorkshopJobManager
                 Progress = 100,
                 Message = "已从服务器缓存中找到壁纸。",
                 Title = Path.GetFileNameWithoutExtension(file),
-                FilePath = file
+                FilePath = file,
+                PreviewPath = preview
             };
     }
 
@@ -316,8 +345,11 @@ internal sealed class WorkshopJobManager
                 File.Copy(result.VideoPath, destination, true);
             }
 
+            var previewPath = CopyPreviewToCache(result.WorkshopDirectory, directory);
+
             job.Title = title;
             job.FilePath = destination;
+            job.PreviewPath = previewPath;
             job.Status = "ready";
             job.Progress = 100;
             job.Message = "服务器下载完成，可以获取壁纸。";
@@ -337,6 +369,69 @@ internal sealed class WorkshopJobManager
         job.Status = "failed";
         job.Progress = 100;
         job.Message = string.IsNullOrWhiteSpace(message) ? "服务器下载失败。" : message;
+    }
+
+    private string? FindOrCopyPreview(string workshopId, string cacheDirectory)
+    {
+        var cachedPreview = FindPreviewFile(cacheDirectory);
+        if (cachedPreview != null)
+        {
+            return cachedPreview;
+        }
+
+        var steamCmdPath = SteamCmdService.FindSteamCmd(_settings.SteamCmdPath);
+        if (steamCmdPath == null)
+        {
+            return null;
+        }
+
+        var workshopDirectory = Path.Combine(
+            Path.GetDirectoryName(steamCmdPath)!,
+            "steamapps", "workshop", "content", "431960", workshopId);
+        return CopyPreviewToCache(workshopDirectory, cacheDirectory);
+    }
+
+    private static string? CopyPreviewToCache(string? workshopDirectory, string cacheDirectory)
+    {
+        var source = FindPreviewFile(workshopDirectory);
+        if (source == null)
+        {
+            return null;
+        }
+
+        Directory.CreateDirectory(cacheDirectory);
+        var extension = Path.GetExtension(source).ToLowerInvariant();
+        if (extension != ".jpg" && extension != ".jpeg" && extension != ".png" && extension != ".gif")
+        {
+            extension = ".jpg";
+        }
+        var destination = Path.Combine(cacheDirectory, "preview" + extension);
+        if (!string.Equals(Path.GetFullPath(source), Path.GetFullPath(destination), StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(source, destination, true);
+        }
+        return destination;
+    }
+
+    private static string? FindPreviewFile(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories)
+            .Where(path =>
+            {
+                var extension = Path.GetExtension(path);
+                return extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                       extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                       extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                       extension.Equals(".gif", StringComparison.OrdinalIgnoreCase);
+            })
+            .OrderByDescending(path => Path.GetFileName(path).Equals("preview.jpg", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(path => new FileInfo(path).Length)
+            .FirstOrDefault();
     }
 
     private static string SanitizeFileName(string value)

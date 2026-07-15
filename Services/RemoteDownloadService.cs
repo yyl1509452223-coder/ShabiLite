@@ -14,6 +14,7 @@ namespace ShabiLite.Services
     {
         public bool Success { get; set; }
         public string VideoPath { get; set; }
+        public string PreviewPath { get; set; }
         public string Title { get; set; }
         public string Message { get; set; }
     }
@@ -57,7 +58,8 @@ namespace ShabiLite.Services
             string serverUrl,
             string apiKey,
             string workshopId,
-            IProgress<SteamCmdProgress> progress,
+            string destinationDirectory,
+            IProgress<DownloadProgress> progress,
             CancellationToken cancellationToken)
         {
             try
@@ -86,17 +88,25 @@ namespace ShabiLite.Services
                     }
 
                     Report(progress, 96, "服务器下载完成，正在传输 MP4…");
-                    var temporaryPath = await DownloadFileAsync(
+                    var videoPath = await DownloadFileAsync(
                         client,
                         new Uri(baseUri, "api/files/" + Uri.EscapeDataString(workshopId)),
                         workshopId,
+                        job.Title,
+                        destinationDirectory,
                         progress,
+                        cancellationToken);
+                    var previewPath = await DownloadPreviewAsync(
+                        client,
+                        new Uri(baseUri, "api/previews/" + Uri.EscapeDataString(workshopId)),
+                        videoPath,
                         cancellationToken);
 
                     return new RemoteDownloadResult
                     {
                         Success = true,
-                        VideoPath = temporaryPath,
+                        VideoPath = videoPath,
+                        PreviewPath = previewPath,
                         Title = job.Title,
                         Message = string.IsNullOrWhiteSpace(job.Message) ? "远程壁纸下载完成。" : job.Message
                     };
@@ -164,7 +174,9 @@ namespace ShabiLite.Services
             HttpClient client,
             Uri downloadUri,
             string workshopId,
-            IProgress<SteamCmdProgress> progress,
+            string title,
+            string destinationDirectory,
+            IProgress<DownloadProgress> progress,
             CancellationToken cancellationToken)
         {
             using (var request = new HttpRequestMessage(HttpMethod.Get, downloadUri))
@@ -175,15 +187,15 @@ namespace ShabiLite.Services
                     throw new InvalidOperationException(await GetErrorMessageAsync(response));
                 }
 
-                var directory = Path.Combine(Path.GetTempPath(), "鲨壁", "RemoteDownloads");
-                Directory.CreateDirectory(directory);
-                var destination = Path.Combine(directory, workshopId + "-" + Guid.NewGuid().ToString("N") + ".mp4");
+                Directory.CreateDirectory(destinationDirectory);
+                var destination = GetAvailableDestinationPath(destinationDirectory, title, workshopId);
+                var partialPath = destination + ".download-" + Guid.NewGuid().ToString("N");
                 var total = response.Content.Headers.ContentLength;
 
                 try
                 {
                     using (var source = await response.Content.ReadAsStreamAsync())
-                    using (var target = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
+                    using (var target = new FileStream(partialPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
                     {
                         var buffer = new byte[81920];
                         long received = 0;
@@ -199,17 +211,84 @@ namespace ShabiLite.Services
                             }
                         }
                     }
+                    File.Move(partialPath, destination);
                     return destination;
                 }
                 catch
                 {
-                    if (File.Exists(destination))
+                    if (File.Exists(partialPath))
                     {
-                        File.Delete(destination);
+                        File.Delete(partialPath);
                     }
                     throw;
                 }
             }
+        }
+
+        private static async Task<string> DownloadPreviewAsync(
+            HttpClient client,
+            Uri previewUri,
+            string videoPath,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                using (var request = new HttpRequestMessage(HttpMethod.Get, previewUri))
+                using (var response = await client.SendAsync(request, cancellationToken))
+                {
+                    if (response.StatusCode == HttpStatusCode.NotFound)
+                    {
+                        return null;
+                    }
+                    response.EnsureSuccessStatusCode();
+                    var mediaType = response.Content.Headers.ContentType == null
+                        ? string.Empty
+                        : response.Content.Headers.ContentType.MediaType;
+                    var extension = string.Equals(mediaType, "image/gif", StringComparison.OrdinalIgnoreCase)
+                        ? ".gif"
+                        : string.Equals(mediaType, "image/png", StringComparison.OrdinalIgnoreCase)
+                            ? ".png"
+                            : ".jpg";
+                    var previewPath = Path.ChangeExtension(videoPath, extension);
+                    using (var source = await response.Content.ReadAsStreamAsync())
+                    using (var target = new FileStream(previewPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                    {
+                        await source.CopyToAsync(target, 81920, cancellationToken);
+                    }
+                    return previewPath;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string GetAvailableDestinationPath(string directory, string title, string workshopId)
+        {
+            var safeTitle = MakeSafeFileName(title);
+            var baseName = safeTitle + " [" + workshopId + "]";
+            var candidate = Path.Combine(directory, baseName + ".mp4");
+            for (var index = 2; File.Exists(candidate); index++)
+            {
+                candidate = Path.Combine(directory, baseName + " (" + index + ").mp4");
+            }
+            return candidate;
+        }
+
+        private static string MakeSafeFileName(string value)
+        {
+            var text = string.IsNullOrWhiteSpace(value) ? "Workshop Wallpaper" : value.Trim();
+            foreach (var invalidCharacter in Path.GetInvalidFileNameChars())
+            {
+                text = text.Replace(invalidCharacter, '_');
+            }
+            text = text.Trim().TrimEnd('.');
+            if (text.Length > 130)
+            {
+                text = text.Substring(0, 130).TrimEnd();
+            }
+            return string.IsNullOrWhiteSpace(text) ? "Workshop Wallpaper" : text;
         }
 
         private static HttpClient CreateClient(string apiKey)
@@ -282,9 +361,9 @@ namespace ShabiLite.Services
             return new RemoteDownloadResult { Success = false, Message = message };
         }
 
-        private static void Report(IProgress<SteamCmdProgress> progress, int percent, string message)
+        private static void Report(IProgress<DownloadProgress> progress, int percent, string message)
         {
-            progress?.Report(new SteamCmdProgress { Percent = percent, Message = message });
+            progress?.Report(new DownloadProgress { Percent = percent, Message = message });
         }
     }
 

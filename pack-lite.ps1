@@ -2,7 +2,8 @@ param(
     [string]$Source = (Join-Path $PSScriptRoot 'bin\Release\net472\win-x64'),
     [string]$Destination = (Join-Path (Split-Path $PSScriptRoot -Parent) 'outputs\shabi-ultralite'),
     [string]$RemoteServerUrl,
-    [string]$RemoteServerSettingsPath
+    [string]$RemoteServerSettingsPath,
+    [string]$RemoteSettingsPassword
 )
 
 $ErrorActionPreference = 'Stop'
@@ -27,6 +28,20 @@ if (-not (Test-Path -LiteralPath $destinationPath)) {
 Get-ChildItem -LiteralPath $sourcePath -File |
     Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
     Copy-Item -Destination $destinationPath -Force
+
+$destinationPrefix = $destinationPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+foreach ($obsoleteSteamCmdPath in @(
+    (Join-Path $destinationPath 'steamcmd.exe'),
+    (Join-Path $destinationPath 'SteamCMD')
+)) {
+    $resolvedObsoletePath = [System.IO.Path]::GetFullPath($obsoleteSteamCmdPath)
+    if (-not $resolvedObsoletePath.StartsWith($destinationPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a path outside the package: $resolvedObsoletePath"
+    }
+    if (Test-Path -LiteralPath $resolvedObsoletePath) {
+        Remove-Item -LiteralPath $resolvedObsoletePath -Recurse -Force
+    }
+}
 
 $vlcSource = Join-Path $sourcePath 'libvlc\win-x64'
 $vlcTarget = Join-Path $destinationPath 'libvlc\win-x64'
@@ -142,9 +157,22 @@ if ($RemoteServerUrl -and $RemoteServerSettingsPath) {
     if (-not $serverSettings.ApiKey) {
         throw 'Server API key is missing.'
     }
+    if (-not $RemoteSettingsPassword) {
+        throw 'Remote settings password is required for a private package.'
+    }
+    $saltedPassword = 'ShabiRemoteSettings:' + $RemoteSettingsPassword
+    $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($saltedPassword)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $passwordHash = [Convert]::ToBase64String($sha256.ComputeHash($passwordBytes))
+    }
+    finally {
+        $sha256.Dispose()
+    }
     $remoteProfile = [string]::Join([Environment]::NewLine, @(
         ('url=' + $RemoteServerUrl.TrimEnd('/'))
         ('key=' + $serverSettings.ApiKey)
+        ('passwordhash=' + $passwordHash)
     ))
     Set-Content -LiteralPath (Join-Path $destinationPath 'remote-access.ini') -Value $remoteProfile -Encoding UTF8
 }

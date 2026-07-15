@@ -9,11 +9,9 @@ namespace ShabiLite.Services
         public string VideoPath { get; set; }
         public string ScaleMode { get; set; } = "UniformToFill";
         public bool IsMuted { get; set; } = true;
-        public string SteamCmdPath { get; set; }
-        public string SteamUserName { get; set; } = SteamCmdService.DefaultSteamUserName;
-        public bool UseRemoteServer { get; set; }
         public string RemoteServerUrl { get; set; }
         public string RemoteServerKey { get; set; }
+        public string RemoteSettingsPasswordHash { get; set; }
     }
 
     internal sealed class SettingsStore
@@ -30,7 +28,6 @@ namespace ShabiLite.Services
         public AppSettings Load()
         {
             var settings = new AppSettings();
-            var hasRemoteModeSetting = false;
             try
             {
                 if (File.Exists(SettingsPath))
@@ -68,23 +65,6 @@ namespace ShabiLite.Services
                                 settings.IsMuted = muted;
                             }
                         }
-                        else if (key == "steamcmd")
-                        {
-                            settings.SteamCmdPath = Decode(value);
-                        }
-                        else if (key == "steamuser")
-                        {
-                            settings.SteamUserName = Decode(value);
-                        }
-                        else if (key == "useremote")
-                        {
-                            hasRemoteModeSetting = true;
-                            bool useRemote;
-                            if (bool.TryParse(value, out useRemote))
-                            {
-                                settings.UseRemoteServer = useRemote;
-                            }
-                        }
                         else if (key == "remoteurl")
                         {
                             settings.RemoteServerUrl = Decode(value);
@@ -92,6 +72,10 @@ namespace ShabiLite.Services
                         else if (key == "remotekey")
                         {
                             settings.RemoteServerKey = Decode(value);
+                        }
+                        else if (key == "remotepasswordhash")
+                        {
+                            settings.RemoteSettingsPasswordHash = Decode(value);
                         }
                     }
                 }
@@ -105,17 +89,12 @@ namespace ShabiLite.Services
                 settings = new AppSettings();
             }
 
-            ApplyBundledRemoteProfile(settings, hasRemoteModeSetting);
-
-            if (!SteamCmdService.IsValidSteamUserName(settings.SteamUserName))
-            {
-                settings.SteamUserName = SteamCmdService.DefaultSteamUserName;
-            }
+            ApplyBundledRemoteProfile(settings);
 
             return settings;
         }
 
-        private static void ApplyBundledRemoteProfile(AppSettings settings, bool hasRemoteModeSetting)
+        private static void ApplyBundledRemoteProfile(AppSettings settings)
         {
             var profilePath = Path.Combine(AppContext.BaseDirectory, "remote-access.ini");
             if (!File.Exists(profilePath))
@@ -127,6 +106,7 @@ namespace ShabiLite.Services
             {
                 string url = null;
                 string apiKey = null;
+                string passwordHash = null;
                 foreach (var line in File.ReadAllLines(profilePath, Encoding.UTF8))
                 {
                     var separator = line.IndexOf('=');
@@ -145,6 +125,10 @@ namespace ShabiLite.Services
                     {
                         apiKey = value;
                     }
+                    else if (key.Equals("passwordhash", StringComparison.OrdinalIgnoreCase))
+                    {
+                        passwordHash = value;
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(apiKey))
@@ -157,10 +141,10 @@ namespace ShabiLite.Services
                     {
                         settings.RemoteServerKey = apiKey;
                     }
-                    if (!hasRemoteModeSetting)
-                    {
-                        settings.UseRemoteServer = true;
-                    }
+                }
+                if (!string.IsNullOrWhiteSpace(passwordHash))
+                {
+                    settings.RemoteSettingsPasswordHash = passwordHash;
                 }
             }
             catch (IOException)
@@ -182,11 +166,9 @@ namespace ShabiLite.Services
                 "video=" + video,
                 "scale=" + (IsValidScaleMode(settings.ScaleMode) ? settings.ScaleMode : "UniformToFill"),
                 "muted=" + settings.IsMuted,
-                "steamcmd=" + Encode(settings.SteamCmdPath),
-                "steamuser=" + Encode(settings.SteamUserName),
-                "useremote=" + settings.UseRemoteServer,
                 "remoteurl=" + Encode(settings.RemoteServerUrl),
-                "remotekey=" + Encode(settings.RemoteServerKey)
+                "remotekey=" + Encode(settings.RemoteServerKey),
+                "remotepasswordhash=" + Encode(settings.RemoteSettingsPasswordHash)
             });
 
             var temporaryPath = SettingsPath + ".tmp";
