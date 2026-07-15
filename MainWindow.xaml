@@ -1,0 +1,357 @@
+<Window x:Class="ShabiLite.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:automation="clr-namespace:System.Windows.Automation;assembly=PresentationCore"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="鲨壁"
+        Width="1120"
+        Height="720"
+        MinWidth="960"
+        MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Icon="Assets/AppIcon.ico"
+        Background="{DynamicResource AppBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}"
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        AllowDrop="True"
+        DragEnter="Window_DragEnter"
+        Drop="Window_Drop">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="29"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border x:Name="WindowFrame" Background="{DynamicResource AppBackgroundBrush}"
+            BorderBrush="#CFC4DF" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="91" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border x:Name="HeaderChrome">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Offset="0" Color="#2A2242" />
+                        <GradientStop Offset="0.54" Color="#4D378B" />
+                        <GradientStop Offset="1" Color="#7C5CE5" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="29" />
+                        <RowDefinition Height="62" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="10,2,5,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="6" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Image Width="16" Height="16" VerticalAlignment="Center"
+                               Source="Assets/ShabiIcon.png" Stretch="UniformToFill" />
+                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#F2EEFF" Text="鲨壁" />
+                        <Button Grid.Column="3" Style="{StaticResource WindowControlButton}" Content="−"
+                                Click="MinimizeWindowButton_Click" ToolTip="最小化"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                automation:AutomationProperties.Name="最小化鲨壁" />
+                        <Button x:Name="MaximizeWindowButton" Grid.Column="4"
+                                Style="{StaticResource WindowControlButton}" Content="□"
+                                Click="MaximizeWindowButton_Click" ToolTip="最大化 / 还原"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                automation:AutomationProperties.Name="最大化或还原鲨壁" />
+                        <Button Grid.Column="5" Style="{StaticResource WindowCloseButton}" Content="×"
+                                Click="CloseWindowButton_Click" ToolTip="关闭"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                automation:AutomationProperties.Name="关闭鲨壁" />
+                    </Grid>
+
+                    <Grid Grid.Row="1" Margin="20,6,20,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#EEE9FF" Text="浏览、下载并运行你的动态壁纸" />
+                                <Border Margin="9,0,0,0" Padding="7,2" Background="#24FFFFFF"
+                                        BorderBrush="#3AFFFFFF" BorderThickness="1" CornerRadius="5">
+                                    <TextBlock FontSize="10" Foreground="#F1ECFF" Text="V2.3" />
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="1" Style="{StaticResource HeaderCommandButton}" Content="设置"
+                                Click="SettingsButton_Click"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                automation:AutomationProperties.Name="打开鲨壁设置" />
+                        <Button Grid.Column="3" Style="{StaticResource HeaderCommandButton}" MinWidth="104"
+                                Content="缩小到托盘" Click="HideToTrayButton_Click"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                                automation:AutomationProperties.Name="缩小鲨壁到系统托盘" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+    <Grid Grid.Row="1" Margin="28,20,28,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="14" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="BrowseWorkshopButton" MinWidth="126" Content="浏览壁纸"
+                    Background="#E7EEF8" BorderBrush="#C8D6E8"
+                    Click="BrowseWorkshopButton_Click"
+                    automation:AutomationProperties.Name="打开 Steam 创意工坊壁纸列表" />
+
+            <Grid Grid.Column="2">
+                <TextBox x:Name="WorkshopUrlTextBox" Height="42"
+                         ToolTip="粘贴 Steam 创意工坊壁纸详情页地址"
+                         TextChanged="WorkshopUrlTextBox_TextChanged"
+                         automation:AutomationProperties.Name="创意工坊壁纸地址" />
+                <TextBlock x:Name="WorkshopUrlHint" Margin="14,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource MutedTextBrush}" IsHitTestVisible="False"
+                           Text="粘贴想下载的 Steam 创意工坊壁纸 URL" />
+            </Grid>
+
+            <Button x:Name="DownloadButton" Grid.Column="4" MinWidth="126"
+                    Style="{StaticResource PrimaryButton}" Content="下载壁纸"
+                    Click="DownloadButton_Click"
+                    automation:AutomationProperties.Name="使用 SteamCMD 下载壁纸" />
+        </Grid>
+
+        <Border x:Name="StatusBorder" Grid.Row="2" Background="#EEEAF3" CornerRadius="9" ClipToBounds="True"
+                SizeChanged="StatusBorder_SizeChanged" automation:AutomationProperties.LiveSetting="Polite">
+            <Grid>
+                <Border x:Name="StatusProgressFill" HorizontalAlignment="Left" Width="0"
+                        Background="#267C5CE5" CornerRadius="9" Visibility="Collapsed" />
+                <Grid Margin="14,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="10" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="StatusIndicator" Width="8" Height="8" VerticalAlignment="Center" Fill="#80778F" />
+                    <TextBlock x:Name="StatusTextBlock" Grid.Column="2" VerticalAlignment="Center" FontSize="13"
+                               Foreground="{StaticResource PrimaryTextBrush}" Text="准备就绪。" TextWrapping="Wrap" />
+                    <TextBlock x:Name="StatusPercentText" Grid.Column="4" VerticalAlignment="Center" FontSize="13"
+                               FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}" Visibility="Collapsed" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2.05*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="0.95*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Padding="18" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock FontSize="19" FontWeight="SemiBold" Text="壁纸库" />
+                            <TextBlock Margin="0,4,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}"
+                                       Text="单击选择壁纸；右键可以从软件库中删除。" />
+                        </StackPanel>
+                        <Border Grid.Column="1" Padding="10,5" Background="#F0EBF6" CornerRadius="7" VerticalAlignment="Center">
+                            <TextBlock x:Name="LibraryCountText" FontSize="12" Foreground="#655B73" Text="0 张壁纸" />
+                        </Border>
+                    </Grid>
+
+                    <Border Grid.Row="2" Background="#F5F1FA" CornerRadius="12" ClipToBounds="True">
+                        <Grid>
+                            <StackPanel x:Name="PreviewEmptyState" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="68" Height="68" Background="#E8E1FF" CornerRadius="16" ClipToBounds="True"
+                                        HorizontalAlignment="Center">
+                                    <Image Source="Assets/ShabiIcon.png" Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center" FontSize="16"
+                                           FontWeight="SemiBold" Text="壁纸库还是空的" />
+                                <TextBlock Margin="0,6,0,0" HorizontalAlignment="Center" FontSize="13"
+                                           Foreground="{StaticResource MutedTextBrush}" Text="打开本地 MP4，或把视频拖进窗口" />
+                            </StackPanel>
+
+                            <ListBox x:Name="WallpaperList" Margin="8" Background="Transparent" BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     SelectionChanged="WallpaperList_SelectionChanged"
+                                     automation:AutomationProperties.Name="壁纸文件库">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel IsItemsHost="True" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Margin" Value="6" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <EventSetter Event="MouseEnter" Handler="WallpaperTile_MouseEnter" />
+                                        <EventSetter Event="MouseLeave" Handler="WallpaperTile_MouseLeave" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="TileBorder" BorderBrush="#DED5E8" BorderThickness="1"
+                                                            Background="#FFFFFF" CornerRadius="10">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="TileBorder" Property="BorderBrush" Value="#BFAFD2" />
+                                                            <Setter TargetName="TileBorder" Property="Background" Value="#F4EFFA" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="TileBorder" Property="BorderBrush" Value="{StaticResource PurpleBrush}" />
+                                                            <Setter TargetName="TileBorder" Property="BorderThickness" Value="2" />
+                                                            <Setter TargetName="TileBorder" Property="Background" Value="#EEE7FB" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Width="158" Height="126" ToolTip="{Binding Path}">
+                                            <Grid.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="删除壁纸" Tag="{Binding}" Click="DeleteWallpaperMenuItem_Click" />
+                                                </ContextMenu>
+                                            </Grid.ContextMenu>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="92" />
+                                                <RowDefinition Height="34" />
+                                            </Grid.RowDefinitions>
+                                            <Grid Background="#EDE5F7">
+                                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="18" FontWeight="SemiBold" Foreground="#A995F5" Text="MP4" />
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                                <MediaElement x:Name="HoverPreviewMedia" LoadedBehavior="Manual" UnloadedBehavior="Manual"
+                                                              Stretch="UniformToFill" IsMuted="True" ScrubbingEnabled="False"
+                                                              IsHitTestVisible="False" Visibility="Collapsed" Opacity="0"
+                                                              MediaOpened="HoverPreviewMedia_MediaOpened"
+                                                              MediaEnded="HoverPreviewMedia_MediaEnded"
+                                                              MediaFailed="HoverPreviewMedia_MediaFailed" />
+                                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6"
+                                                        Padding="6,2" Background="#E6FFFFFF" CornerRadius="5">
+                                                    <TextBlock FontSize="10" Foreground="#4A4356" Text="{Binding SourceLabel}" />
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Grid.Row="1" Margin="9,0" VerticalAlignment="Center"
+                                                       FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource PrimaryTextBrush}"
+                                                       Text="{Binding FileName}" TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="14" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Button x:Name="OpenFileButton" Height="64" FontSize="16" FontWeight="SemiBold"
+                        Background="#E7EEF8" BorderBrush="#C8D6E8" Content="打开 / 新增文件"
+                        Click="OpenFileButton_Click"
+                        automation:AutomationProperties.Name="打开或新增本地 MP4 文件" />
+
+                <Border Grid.Row="2" Padding="20" Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="14">
+                    <StackPanel>
+                        <TextBlock FontSize="19" FontWeight="SemiBold" Text="壁纸播放设置" />
+
+                        <TextBlock Margin="0,18,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="当前选择" />
+                        <Border Margin="0,7,0,0" Padding="12,10" Background="#F9F7FC"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                            <TextBlock x:Name="CurrentSelectionText" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}"
+                                       Text="尚未选择壁纸" TextTrimming="CharacterEllipsis" />
+                        </Border>
+
+                        <TextBlock Margin="0,18,0,0" FontSize="13" Foreground="{StaticResource SecondaryTextBrush}" Text="画面缩放" />
+                        <ComboBox x:Name="ScalingComboBox" Margin="0,7,0,0" Height="42" Padding="10,0"
+                                  SelectionChanged="ScalingComboBox_SelectionChanged"
+                                  automation:AutomationProperties.Name="画面缩放方式">
+                            <ComboBoxItem Tag="UniformToFill" Content="铺满屏幕（保持比例）" />
+                            <ComboBoxItem Tag="Uniform" Content="完整显示（保持比例）" />
+                            <ComboBoxItem Tag="Fill" Content="拉伸填满（可能变形）" />
+                        </ComboBox>
+
+                        <CheckBox x:Name="MuteCheckBox" Margin="0,18,0,0" MinHeight="32"
+                                  VerticalContentAlignment="Center" Content="静音播放"
+                                  Checked="MuteCheckBox_Changed" Unchecked="MuteCheckBox_Changed" />
+                    </StackPanel>
+                </Border>
+
+                <Button x:Name="RunPauseButton" Grid.Row="4" Height="58" FontSize="16" FontWeight="SemiBold"
+                        Style="{StaticResource PrimaryButton}" Content="运行壁纸"
+                        Click="RunPauseButton_Click"
+                        automation:AutomationProperties.Name="运行或暂停视频壁纸" />
+            </Grid>
+        </Grid>
+
+        <Grid Grid.Row="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Foreground="{StaticResource MutedTextBrush}" FontSize="12" Text="开发：打电动的七彩鲨鱼" />
+            <TextBlock Grid.Column="1" Foreground="{StaticResource MutedTextBrush}" FontSize="12"
+                       Text="SteamCMD 下载 · LibVLC 64 位播放" />
+        </Grid>
+    </Grid>
+        </Grid>
+    </Border>
+</Window>
