@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
 using ShabiLite.Interop;
 using ShabiLite.Services;
 
@@ -12,6 +14,7 @@ namespace ShabiLite
         private readonly AppSettings _settings;
         private readonly SettingsStore _settingsStore;
         private readonly string _libraryDirectory;
+        private bool _remoteSettingsUnlocked;
 
         internal SettingsWindow(AppSettings settings, SettingsStore settingsStore, string libraryDirectory)
         {
@@ -20,11 +23,10 @@ namespace ShabiLite
             _settingsStore = settingsStore;
             _libraryDirectory = libraryDirectory;
 
-            SteamUserNameTextBox.Text = SteamCmdService.IsValidSteamUserName(settings.SteamUserName)
-                ? settings.SteamUserName
-                : SteamCmdService.DefaultSteamUserName;
-            var steamCmdPath = SteamCmdService.FindSteamCmd(settings.SteamCmdPath);
-            SteamCmdPathTextBox.Text = steamCmdPath ?? string.Empty;
+            RemoteServerUrlTextBox.Text = settings.RemoteServerUrl ?? string.Empty;
+            RemoteServerKeyTextBox.Text = settings.RemoteServerKey ?? string.Empty;
+            _remoteSettingsUnlocked = string.IsNullOrWhiteSpace(settings.RemoteSettingsPasswordHash);
+            UpdateRemoteSettingsVisibility();
             SourceInitialized += delegate { WindowAppearance.ApplyDarkTitleBar(this); };
             Loaded += delegate { UpdateWindowFrameState(); };
         }
@@ -42,62 +44,73 @@ namespace ShabiLite
 
         private void UpdateWindowFrameState()
         {
-            var maximized = WindowState == WindowState.Maximized;
-            SettingsWindowFrame.BorderThickness = maximized ? new Thickness(0) : new Thickness(1);
+            SettingsWindowFrame.BorderThickness = WindowState == WindowState.Maximized
+                ? new Thickness(0)
+                : new Thickness(1);
         }
 
-        private void BrowseSteamCmdButton_Click(object sender, RoutedEventArgs e)
+        private void UnlockRemoteSettingsButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Title = "选择 steamcmd.exe",
-                Filter = "SteamCMD (steamcmd.exe)|steamcmd.exe|应用程序 (*.exe)|*.exe",
-                FileName = "steamcmd.exe",
-                CheckFileExists = true
-            };
-            if (dialog.ShowDialog(this) == true)
-            {
-                SteamCmdPathTextBox.Text = dialog.FileName;
-                LoginStatusText.Text = "SteamCMD 已选择，保存后即可使用。";
-                LoginStatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#3569A8"));
-            }
+            UnlockRemoteSettings();
         }
 
-        private void LoginSteamCmdButton_Click(object sender, RoutedEventArgs e)
+        private void RemoteSettingsPasswordBox_KeyDown(object sender, KeyEventArgs e)
         {
-            var userName = (SteamUserNameTextBox.Text ?? string.Empty).Trim();
-            if (!SteamCmdService.IsValidSteamUserName(userName))
+            if (e.Key != Key.Enter)
             {
-                LoginStatusText.Text = "请输入有效的 Steam 账号登录名。";
-                LoginStatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#B43D51"));
-                SteamUserNameTextBox.Focus();
                 return;
             }
 
-            var steamCmdPath = SteamCmdService.FindSteamCmd(SteamCmdPathTextBox.Text);
-            if (steamCmdPath == null)
+            UnlockRemoteSettings();
+            e.Handled = true;
+        }
+
+        private void UnlockRemoteSettings()
+        {
+            if (!RemoteSettingsSecurity.VerifyPassword(
+                    RemoteSettingsPasswordBox.Password,
+                    _settings.RemoteSettingsPasswordHash))
             {
-                LoginStatusText.Text = "请先选择 steamcmd.exe。";
-                LoginStatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#B43D51"));
+                RemoteSettingsLockStatusText.Text = "密码不正确，无法查看服务器设置。";
+                RemoteSettingsPasswordBox.SelectAll();
+                RemoteSettingsPasswordBox.Focus();
                 return;
             }
 
+            _remoteSettingsUnlocked = true;
+            RemoteSettingsPasswordBox.Clear();
+            RemoteSettingsLockStatusText.Text = string.Empty;
+            UpdateRemoteSettingsVisibility();
+            RemoteServerUrlTextBox.Focus();
+        }
+
+        private void UpdateRemoteSettingsVisibility()
+        {
+            RemoteSettingsLockPanel.Visibility = _remoteSettingsUnlocked ? Visibility.Collapsed : Visibility.Visible;
+            RemoteServerFields.Visibility = _remoteSettingsUnlocked ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private async void TestRemoteConnectionButton_Click(object sender, RoutedEventArgs e)
+        {
+            TestRemoteConnectionButton.IsEnabled = false;
+            RemoteConnectionStatusText.Text = "正在连接服务器…";
+            RemoteConnectionStatusText.Foreground = Brush("#7358A6");
             try
             {
-                SaveValues();
-                SteamCmdService.OpenLoginWindow(steamCmdPath, userName);
-                LoginStatusText.Text = "登录窗口已打开。按提示输入密码和 Steam Guard；看到 Logged in...OK 后输入 quit。";
-                LoginStatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#2E7D50"));
+                var message = await RemoteDownloadService.TestConnectionAsync(
+                    RemoteServerUrlTextBox.Text,
+                    RemoteServerKeyTextBox.Text);
+                RemoteConnectionStatusText.Text = message;
+                RemoteConnectionStatusText.Foreground = Brush("#2E7D50");
             }
             catch (Exception exception)
             {
-                LoginStatusText.Text = "无法打开登录：" + exception.Message;
-                LoginStatusText.Foreground = new System.Windows.Media.SolidColorBrush(
-                    (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#B43D51"));
+                RemoteConnectionStatusText.Text = "连接失败：" + exception.Message;
+                RemoteConnectionStatusText.Foreground = Brush("#B43D51");
+            }
+            finally
+            {
+                TestRemoteConnectionButton.IsEnabled = true;
             }
         }
 
@@ -119,9 +132,16 @@ namespace ShabiLite
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            SaveValues();
-            DialogResult = true;
-            Close();
+            try
+            {
+                SaveValues();
+                DialogResult = true;
+                Close();
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, exception.Message, "无法保存设置", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -132,20 +152,26 @@ namespace ShabiLite
 
         private void SaveValues()
         {
-            var userName = (SteamUserNameTextBox.Text ?? string.Empty).Trim();
-            if (userName.Length == 0)
+            if (_remoteSettingsUnlocked)
             {
-                userName = SteamCmdService.DefaultSteamUserName;
-                SteamUserNameTextBox.Text = userName;
+                _settings.RemoteServerUrl = RemoteDownloadService.NormalizeServerUrl(RemoteServerUrlTextBox.Text);
+                _settings.RemoteServerKey = (RemoteServerKeyTextBox.Text ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(_settings.RemoteServerKey))
+                {
+                    throw new InvalidOperationException("请输入远程服务器访问密钥。");
+                }
             }
-            if (!SteamCmdService.IsValidSteamUserName(userName))
+            else if (string.IsNullOrWhiteSpace(_settings.RemoteServerUrl) || string.IsNullOrWhiteSpace(_settings.RemoteServerKey))
             {
-                throw new InvalidOperationException("Steam 用户名格式无效。");
+                throw new InvalidOperationException("远程服务器尚未配置，请先输入管理密码解锁设置。 ");
             }
 
-            _settings.SteamUserName = userName;
-            _settings.SteamCmdPath = SteamCmdService.FindSteamCmd(SteamCmdPathTextBox.Text) ?? SteamCmdPathTextBox.Text;
             _settingsStore.Save(_settings);
+        }
+
+        private static SolidColorBrush Brush(string value)
+        {
+            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));
         }
     }
 }

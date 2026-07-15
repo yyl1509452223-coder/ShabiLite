@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -11,7 +12,7 @@ namespace ShabiLite.Services
     {
         public string FileName { get; set; }
         public string Path { get; set; }
-        public string SourceLabel { get; set; }
+        public string PreviewPath { get; set; }
         public ImageSource Thumbnail { get; set; }
     }
 
@@ -19,6 +20,25 @@ namespace ShabiLite.Services
     {
         public static ImageSource GetThumbnail(string path, int width, int height)
         {
+            var previewPath = FindPreviewPath(path);
+            if (previewPath != null)
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.DecodePixelWidth = width;
+                    bitmap.UriSource = new Uri(previewPath, UriKind.Absolute);
+                    bitmap.EndInit();
+                    bitmap.Freeze();
+                    return bitmap;
+                }
+                catch
+                {
+                }
+            }
+
             IntPtr bitmapHandle = IntPtr.Zero;
             try
             {
@@ -53,6 +73,24 @@ namespace ShabiLite.Services
                     DeleteObject(bitmapHandle);
                 }
             }
+        }
+
+        public static string FindPreviewPath(string videoPath)
+        {
+            if (string.IsNullOrWhiteSpace(videoPath))
+            {
+                return null;
+            }
+
+            foreach (var extension in new[] { ".jpg", ".jpeg", ".png", ".gif" })
+            {
+                var candidate = Path.ChangeExtension(videoPath, extension);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+            return null;
         }
 
         [Flags]

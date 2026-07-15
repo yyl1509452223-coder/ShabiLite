@@ -1,10 +1,13 @@
 param(
     [string]$Source = (Join-Path $PSScriptRoot 'bin\Release\net472\win-x64'),
-    [string]$Destination = (Join-Path (Split-Path $PSScriptRoot -Parent) 'outputs\shabi-ultralite')
+    [string]$Destination = (Join-Path (Split-Path $PSScriptRoot -Parent) 'outputs\shabi-ultralite'),
+    [string]$RemoteServerUrl,
+    [string]$RemoteServerSettingsPath,
+    [string]$RemoteSettingsPassword
 )
 
 $ErrorActionPreference = 'Stop'
-$workspace = [System.IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
+$workspace = [System.IO.Path]::GetFullPath((Split-Path (Split-Path $PSScriptRoot -Parent) -Parent))
 $sourcePath = [System.IO.Path]::GetFullPath($Source)
 $destinationPath = [System.IO.Path]::GetFullPath($Destination)
 
@@ -18,14 +21,27 @@ if (-not (Get-ChildItem -LiteralPath $sourcePath -Filter '*.exe' -File | Select-
     throw "Release build not found: $sourcePath"
 }
 
-if (Test-Path -LiteralPath $destinationPath) {
-    Remove-Item -LiteralPath $destinationPath -Recurse -Force
+if (-not (Test-Path -LiteralPath $destinationPath)) {
+    New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
 }
-New-Item -ItemType Directory -Path $destinationPath -Force | Out-Null
 
 Get-ChildItem -LiteralPath $sourcePath -File |
     Where-Object { $_.Extension -notin @('.pdb', '.xml') } |
     Copy-Item -Destination $destinationPath -Force
+
+$destinationPrefix = $destinationPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+foreach ($obsoleteSteamCmdPath in @(
+    (Join-Path $destinationPath 'steamcmd.exe'),
+    (Join-Path $destinationPath 'SteamCMD')
+)) {
+    $resolvedObsoletePath = [System.IO.Path]::GetFullPath($obsoleteSteamCmdPath)
+    if (-not $resolvedObsoletePath.StartsWith($destinationPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a path outside the package: $resolvedObsoletePath"
+    }
+    if (Test-Path -LiteralPath $resolvedObsoletePath) {
+        Remove-Item -LiteralPath $resolvedObsoletePath -Recurse -Force
+    }
+}
 
 $vlcSource = Join-Path $sourcePath 'libvlc\win-x64'
 $vlcTarget = Join-Path $destinationPath 'libvlc\win-x64'
@@ -131,6 +147,35 @@ $readme = @(
     '5. Exit older versions from the tray before starting.'
 ) -join [Environment]::NewLine
 Set-Content -LiteralPath (Join-Path $destinationPath 'README.txt') -Value $readme -Encoding UTF8
+
+if ($RemoteServerUrl -and $RemoteServerSettingsPath) {
+    $settingsPath = [System.IO.Path]::GetFullPath($RemoteServerSettingsPath)
+    if (-not (Test-Path -LiteralPath $settingsPath)) {
+        throw "Server settings not found: $settingsPath"
+    }
+    $serverSettings = Get-Content -Raw -Encoding UTF8 -LiteralPath $settingsPath | ConvertFrom-Json
+    if (-not $serverSettings.ApiKey) {
+        throw 'Server API key is missing.'
+    }
+    if (-not $RemoteSettingsPassword) {
+        throw 'Remote settings password is required for a private package.'
+    }
+    $saltedPassword = 'ShabiRemoteSettings:' + $RemoteSettingsPassword
+    $passwordBytes = [System.Text.Encoding]::UTF8.GetBytes($saltedPassword)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $passwordHash = [Convert]::ToBase64String($sha256.ComputeHash($passwordBytes))
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    $remoteProfile = [string]::Join([Environment]::NewLine, @(
+        ('url=' + $RemoteServerUrl.TrimEnd('/'))
+        ('key=' + $serverSettings.ApiKey)
+        ('passwordhash=' + $passwordHash)
+    ))
+    Set-Content -LiteralPath (Join-Path $destinationPath 'remote-access.ini') -Value $remoteProfile -Encoding UTF8
+}
 
 $files = Get-ChildItem -LiteralPath $destinationPath -File -Recurse
 [pscustomobject]@{
