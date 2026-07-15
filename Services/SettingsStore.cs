@@ -11,6 +11,9 @@ namespace ShabiLite.Services
         public bool IsMuted { get; set; } = true;
         public string SteamCmdPath { get; set; }
         public string SteamUserName { get; set; } = SteamCmdService.DefaultSteamUserName;
+        public bool UseRemoteServer { get; set; }
+        public string RemoteServerUrl { get; set; }
+        public string RemoteServerKey { get; set; }
     }
 
     internal sealed class SettingsStore
@@ -27,78 +30,82 @@ namespace ShabiLite.Services
         public AppSettings Load()
         {
             var settings = new AppSettings();
+            var hasRemoteModeSetting = false;
             try
             {
-                if (!File.Exists(SettingsPath))
+                if (File.Exists(SettingsPath))
                 {
-                    return settings;
-                }
+                    foreach (var line in File.ReadAllLines(SettingsPath, Encoding.UTF8))
+                    {
+                        var separator = line.IndexOf('=');
+                        if (separator <= 0)
+                        {
+                            continue;
+                        }
 
-                foreach (var line in File.ReadAllLines(SettingsPath, Encoding.UTF8))
-                {
-                    var separator = line.IndexOf('=');
-                    if (separator <= 0)
-                    {
-                        continue;
-                    }
-
-                    var key = line.Substring(0, separator);
-                    var value = line.Substring(separator + 1);
-                    if (key == "video")
-                    {
-                        try
+                        var key = line.Substring(0, separator);
+                        var value = line.Substring(separator + 1);
+                        if (key == "video")
                         {
-                            settings.VideoPath = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                            try
+                            {
+                                settings.VideoPath = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                            }
+                            catch (FormatException)
+                            {
+                                settings.VideoPath = null;
+                            }
                         }
-                        catch (FormatException)
+                        else if (key == "scale" && IsValidScaleMode(value))
                         {
-                            settings.VideoPath = null;
+                            settings.ScaleMode = value;
                         }
-                    }
-                    else if (key == "scale" && IsValidScaleMode(value))
-                    {
-                        settings.ScaleMode = value;
-                    }
-                    else if (key == "muted")
-                    {
-                        bool muted;
-                        if (bool.TryParse(value, out muted))
+                        else if (key == "muted")
                         {
-                            settings.IsMuted = muted;
+                            bool muted;
+                            if (bool.TryParse(value, out muted))
+                            {
+                                settings.IsMuted = muted;
+                            }
                         }
-                    }
-                    else if (key == "steamcmd")
-                    {
-                        try
+                        else if (key == "steamcmd")
                         {
-                            settings.SteamCmdPath = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                            settings.SteamCmdPath = Decode(value);
                         }
-                        catch (FormatException)
+                        else if (key == "steamuser")
                         {
-                            settings.SteamCmdPath = null;
+                            settings.SteamUserName = Decode(value);
                         }
-                    }
-                    else if (key == "steamuser")
-                    {
-                        try
+                        else if (key == "useremote")
                         {
-                            settings.SteamUserName = Encoding.UTF8.GetString(Convert.FromBase64String(value));
+                            hasRemoteModeSetting = true;
+                            bool useRemote;
+                            if (bool.TryParse(value, out useRemote))
+                            {
+                                settings.UseRemoteServer = useRemote;
+                            }
                         }
-                        catch (FormatException)
+                        else if (key == "remoteurl")
                         {
-                            settings.SteamUserName = null;
+                            settings.RemoteServerUrl = Decode(value);
+                        }
+                        else if (key == "remotekey")
+                        {
+                            settings.RemoteServerKey = Decode(value);
                         }
                     }
                 }
             }
             catch (IOException)
             {
-                return new AppSettings();
+                settings = new AppSettings();
             }
             catch (UnauthorizedAccessException)
             {
-                return new AppSettings();
+                settings = new AppSettings();
             }
+
+            ApplyBundledRemoteProfile(settings, hasRemoteModeSetting);
 
             if (!SteamCmdService.IsValidSteamUserName(settings.SteamUserName))
             {
@@ -106,6 +113,62 @@ namespace ShabiLite.Services
             }
 
             return settings;
+        }
+
+        private static void ApplyBundledRemoteProfile(AppSettings settings, bool hasRemoteModeSetting)
+        {
+            var profilePath = Path.Combine(AppContext.BaseDirectory, "remote-access.ini");
+            if (!File.Exists(profilePath))
+            {
+                return;
+            }
+
+            try
+            {
+                string url = null;
+                string apiKey = null;
+                foreach (var line in File.ReadAllLines(profilePath, Encoding.UTF8))
+                {
+                    var separator = line.IndexOf('=');
+                    if (separator <= 0)
+                    {
+                        continue;
+                    }
+
+                    var key = line.Substring(0, separator).Trim();
+                    var value = line.Substring(separator + 1).Trim();
+                    if (key.Equals("url", StringComparison.OrdinalIgnoreCase))
+                    {
+                        url = value;
+                    }
+                    else if (key.Equals("key", StringComparison.OrdinalIgnoreCase))
+                    {
+                        apiKey = value;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(apiKey))
+                {
+                    if (string.IsNullOrWhiteSpace(settings.RemoteServerUrl))
+                    {
+                        settings.RemoteServerUrl = url;
+                    }
+                    if (string.IsNullOrWhiteSpace(settings.RemoteServerKey))
+                    {
+                        settings.RemoteServerKey = apiKey;
+                    }
+                    if (!hasRemoteModeSetting)
+                    {
+                        settings.UseRemoteServer = true;
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         public void Save(AppSettings settings)
@@ -120,7 +183,10 @@ namespace ShabiLite.Services
                 "scale=" + (IsValidScaleMode(settings.ScaleMode) ? settings.ScaleMode : "UniformToFill"),
                 "muted=" + settings.IsMuted,
                 "steamcmd=" + Encode(settings.SteamCmdPath),
-                "steamuser=" + Encode(settings.SteamUserName)
+                "steamuser=" + Encode(settings.SteamUserName),
+                "useremote=" + settings.UseRemoteServer,
+                "remoteurl=" + Encode(settings.RemoteServerUrl),
+                "remotekey=" + Encode(settings.RemoteServerKey)
             });
 
             var temporaryPath = SettingsPath + ".tmp";
@@ -145,6 +211,20 @@ namespace ShabiLite.Services
             return string.IsNullOrWhiteSpace(value)
                 ? string.Empty
                 : Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+        }
+
+        private static string Decode(string value)
+        {
+            try
+            {
+                return string.IsNullOrWhiteSpace(value)
+                    ? null
+                    : Encoding.UTF8.GetString(Convert.FromBase64String(value));
+            }
+            catch (FormatException)
+            {
+                return null;
+            }
         }
     }
 }

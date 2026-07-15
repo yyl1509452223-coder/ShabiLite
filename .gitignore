@@ -22,6 +22,9 @@ steamcmd.exe
 config/
 ssfn*
 settings.ini
+server-settings.json
+remote-access.ini
+ShabiServer/Cache/
 *.log
 *.tmp
 

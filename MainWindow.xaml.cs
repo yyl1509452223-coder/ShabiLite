@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -109,6 +111,12 @@ namespace ShabiLite
                 return;
             }
 
+            if (_settings.UseRemoteServer)
+            {
+                await DownloadFromRemoteServerAsync(workshopId);
+                return;
+            }
+
             var steamCmdPath = SteamCmdService.FindSteamCmd(_settings.SteamCmdPath);
             if (steamCmdPath == null)
             {
@@ -160,6 +168,54 @@ namespace ShabiLite
             else
             {
                 ShowDownloadProgress(100, result.Message + " 下载目录：" + result.WorkshopDirectory, StatusKind.Info);
+            }
+        }
+
+        private async Task DownloadFromRemoteServerAsync(string workshopId)
+        {
+            if (string.IsNullOrWhiteSpace(_settings.RemoteServerUrl) ||
+                string.IsNullOrWhiteSpace(_settings.RemoteServerKey))
+            {
+                ShowStatus("请先在设置中填写远程服务器地址和访问密钥。", StatusKind.Error);
+                return;
+            }
+
+            SetDownloadState(true);
+            ShowDownloadProgress(3, "正在连接远程服务器…", StatusKind.Loading);
+            var progress = new Progress<SteamCmdProgress>(update =>
+                ShowDownloadProgress(update.Percent, update.Message, StatusKind.Loading));
+            var result = await RemoteDownloadService.DownloadAsync(
+                _settings.RemoteServerUrl,
+                _settings.RemoteServerKey,
+                workshopId,
+                progress,
+                CancellationToken.None);
+            SetDownloadState(false);
+            Log.Write("远程下载 " + workshopId + "：" + result.Message);
+
+            if (!result.Success || string.IsNullOrWhiteSpace(result.VideoPath) || !File.Exists(result.VideoPath))
+            {
+                ShowDownloadProgress(100, result.Message, StatusKind.Error);
+                return;
+            }
+
+            try
+            {
+                SelectVideo(result.VideoPath, "远程创意工坊 " + workshopId, true, result.Title);
+                var titleMessage = string.IsNullOrWhiteSpace(result.Title)
+                    ? result.Message
+                    : result.Message + " 文件名：" + result.Title;
+                ShowDownloadProgress(100, titleMessage, StatusKind.Success);
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(result.VideoPath);
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -670,8 +726,14 @@ namespace ShabiLite
             {
                 Owner = this
             };
-            settingsWindow.ShowDialog();
-            ShowStatus("设置已保存。Steam 登录令牌仅保存在本机 SteamCMD 中。", StatusKind.Info);
+            if (settingsWindow.ShowDialog() == true)
+            {
+                ShowStatus(
+                    _settings.UseRemoteServer
+                        ? "设置已保存。下载将由远程服务器处理，本机无需 Steam 登录。"
+                        : "设置已保存。Steam 登录令牌仅保存在本机 SteamCMD 中。",
+                    StatusKind.Info);
+            }
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
